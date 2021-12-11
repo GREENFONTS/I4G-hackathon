@@ -8,16 +8,16 @@ const { v4: uuidv4 } = require("uuid");
 
 //admin signup
 router.post("/register", (req, res) => {
-  const { firstName, lastName, userName, businessName, Email, password } =
+  const { firstName, lastName, userName, businessName, email, password } =
     req.body;
   async function addAdmin() {
     let user = await prisma.user.findFirst({
       where: {
-        email: Email,
+        email: email,
       },
     });
     if (user != null) {
-      res.send("Admin already exists found");
+      res.send("user already exists");
     } else {
       await prisma.user.create({
         data: {
@@ -25,13 +25,21 @@ router.post("/register", (req, res) => {
           lastName: lastName,
           userName: userName,
           businessName: businessName,
-          email: Email,
+          email: email,
           password: password,
           id: uuidv4(),
         },
       });
+      let user = await prisma.user.findFirst({
+        where: {
+          email: email
+        }
+      })
+      res.json({
+        message: "user Registered",
+        data : user
+      });
 
-      res.send("Registration successful");
     }
   }
   try {
@@ -48,12 +56,12 @@ router.post("/register", (req, res) => {
 });
 
 //admin login
-router.post("/", (req, res) => {
-  const { Email, password } = req.body;
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
   async function Login() {
     let user = await prisma.user.findFirst({
       where: {
-        email: Email,
+        email: email,
       },
     });
 
@@ -63,7 +71,7 @@ router.post("/", (req, res) => {
       res.send("password is Incorrect");
     } else {
       const token = jwt.sign(
-        { user_id: user.id, Email },
+        { user_id: user.id, email },
         process.env.TOKEN_KEY,
         {
           expiresIn: "2h",
@@ -72,12 +80,12 @@ router.post("/", (req, res) => {
       let session = req.session;
       session.token = token;
       session.user = user;
-      res.send(user);
+      res.json({ message: "Login successful", data:user });
     }
   }
 
   try {
-    Login(Email, password)
+    Login(email, password)
       .catch((err) => {
         throw err;
       })
@@ -98,7 +106,7 @@ router.get("/user/:id", userAuthenticated, async (req, res) => {
     },
   });
 
-  res.json(user);
+  res.json({ data: user });
 });
 
 //create user branch
@@ -125,8 +133,13 @@ router.post("/user/createBranch", userAuthenticated, (req, res) => {
           id: uuidv4(),
         },
       });
+      let app = await prisma.app.findFirst({
+        where : {
+          branchName : branchName
+        } 
+      })
 
-      res.send("Registration successful");
+      res.json({ message: "Registration successful", data : app});
     }
   }
   try {
@@ -152,7 +165,7 @@ router.get("/user/:id/:branchName", userAuthenticated, async (req, res) => {
       branchName: branchName,
     },
   });
-  res.json(app);
+  res.json({ data: app });
 });
 
 //get all user branches
@@ -162,24 +175,51 @@ router.get("/userbranches", userAuthenticated, async (req, res) => {
       user: req.session.user.id,
     },
   });
-  res.json(app);
+  res.json({ data: app });
 });
 
-//getting list of transactions for user
-// router.post('/transactions', userAuthenticated, async (req, res) => {
-//     const transactions = []
-//     const user = await prisma.user.findFirst({
-//         where: {
-//             email: req.session.user.email
-//         }
-//     })
-//     const transData = await prisma.transaction.findMany({
-//         where: {
-//             user: req.session.user.email
-//         }
-//     });
-//     transactions.push(transData)
-//     res.json(transactions);
-// })
+//get list of transactions for one user's branch
+router.get('/transactions/:id', userAuthenticated, async (req, res) => {
+  const transactions = []
+  const id = req.params.id
+    const branch = await prisma.app.findFirst({
+        where: {
+        user: req.session.user.id,
+        id : id
+        }
+    })
+  try {
+    fetch(`https://api.withmono.com/accounts/${id}/transactions`)
+      .then((res) => res.data())
+      .then(data => res.json(data))
+  }
+  catch (err) {
+    res.send(err)
+  }
+})
+
+// getting list of transactions for user branches
+router.post('/transactions', userAuthenticated, async (req, res) => {
+  const transactions = []
+  const appIds = []
+    const Apps = await prisma.user.findMany({
+        where: {
+            user: req.session.user.id
+        }
+    })
+  Apps.forEach(element => {
+    appIds.push(element.monoAppId)
+  });
+  try {
+    while (count < transactions.length) {
+      fetch(`https://api.withmono.com/accounts/${id}/transactions`)
+        .then((res) => res.data())
+        .then((data) => transactions.push(data));
+    }
+    res.json(transactions);
+  } catch (err) {
+    res.send(err);
+  }
+})
 
 module.exports = router;
