@@ -20,8 +20,9 @@ model user {
 model app {
   branchName String
   address String
-  monoAppId String
+  publicKey String
   description String
+  secretKey String
   user String
   id String @id
 }
