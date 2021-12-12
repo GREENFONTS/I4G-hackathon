@@ -135,7 +135,6 @@ router.post("/user/createBranch", userAuthenticated, (req, res) => {
         branchName: branchName,
       },
     });
-    console.log(app);
     if (app != null) {
       res.send("BranchName already exists found");
     } else {
@@ -209,10 +208,19 @@ router.post("/transactions/:id", userAuthenticated, async (req, res) => {
   const {acctId} = req.body;
   const transactions = [];
   const id = req.params.id;
+  let branch = await prisma.app.findFirst({
+    where: {
+      id : id
+    }
+  })
   try {
-    const response = await fetch(`https://api.withmono.com/accounts/${acctId}/transactions`)
+    const response = await fetch(`https://api.withmono.com/accounts/${acctId}/statement?period=last1months`, {
+      method: 'GET',
+      headers: {Accept: 'application/json', 'mono-sec-key': branch.secretKey }
+
+    })
     const data = await response.json()
-    res.send(Data.data[0])
+    res.send(data)
   } catch (err) {
     res.send(err);
   }
@@ -221,16 +229,26 @@ router.post("/transactions/:id", userAuthenticated, async (req, res) => {
 
 
 // getting list of transactions for user branches
-router.post("/transactions", userAuthenticated, async (req, res) => {
+router.post("/transactions/user/:id", userAuthenticated, (req, res) => {
+  
   const accountIds = req.body.accountIds;
   const transactions = [];
   try {
-    // accountIds.forEach((ele) => {
-    //   fetch(`https://api.withmono.com/accounts/${id}/transactions`)
-    //     .then((res) => res.data())
-    //     .then((data) => transactions.push(data));
-    // })
-    res.json(Data);
+    accountIds.forEach(async (ele) => {
+      const response = await fetch(
+        `https://api.withmono.com/accounts/${ele.acctId}/statement?period=last1months`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "mono-sec-key": ele.secretKey,
+          },
+        }
+      );
+      const data = await response.json();
+      transactions.push(data);
+    });
+    res.json(transactions);
   } catch (err) {
     res.send(err);
   }
