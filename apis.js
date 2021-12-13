@@ -33,7 +33,7 @@ router.post("/register", (req, res) => {
       },
     });
     if (user != null) {
-      res.send("user already exists");
+      res.status(404).send("user already exists")
     } else {
       await prisma.user.create({
         data: {
@@ -81,9 +81,9 @@ router.post("/login", (req, res) => {
     });
 
     if (user == null) {
-      res.send("User not found");
+      res.status(404).send("User not found");
     } else if (user.password != password) {
-      res.send("password is Incorrect");
+      res.status(404).send("password is Incorrect");
     } else {
       const token = jwt.sign(
         { user_id: user.id, email },
@@ -95,7 +95,12 @@ router.post("/login", (req, res) => {
       let session = req.session;
       session.token = token;
       session.user = user;
-      res.json({ message: "Login successful", data: user });
+      res.json({
+        message: "Login successful", data: {
+          user: user,
+          token: token
+        }
+        });
     }
   }
 
@@ -136,7 +141,7 @@ router.post("/user/createBranch", userAuthenticated, (req, res) => {
       },
     });
     if (app != null) {
-      res.send("BranchName already exists found");
+      res.status(404).send("BranchName already exists found");
     } else {
       await prisma.app.create({
         data: {
